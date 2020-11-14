@@ -2,7 +2,7 @@
  * ili9342 LCD for Raspberry Pi Model B rev2
  */
  
-#define BCM2708_PERI_BASE        0x20000000
+#define BCM2708_PERI_BASE        0x3F000000
 #define GPIO_BASE                (BCM2708_PERI_BASE + 0x200000) /* GPIO controller */
 
 #include <linux/module.h>
@@ -75,7 +75,7 @@ static void gpio_setstate(char g,char state)
 // initialization of GPIO
 static void tft_init_board(struct fb_info *info)
 {
-
+	printk("setoutput data");
 	gpio_setoutput(DATA0);
 	gpio_setoutput(DATA1);
 	gpio_setoutput(DATA2);
@@ -84,7 +84,7 @@ static void tft_init_board(struct fb_info *info)
 	gpio_setoutput(DATA5);
 	gpio_setoutput(DATA6);
 	gpio_setoutput(DATA7);
-	
+	printk("end setoutput data");
 	gpio_setoutput(DC);
 	gpio_setoutput(CS);
 	gpio_setoutput(RD);
@@ -225,7 +225,7 @@ static void tft_init(struct fb_info *info)
 static void ili9341_update_display_area(const struct fb_image *image)
 {
 	int x,y;
-	
+	printk("update display");
 	// set column
 	(ORIENTATION) ? tft_command_write(0x2B) : tft_command_write(0x2A);
 	
@@ -335,17 +335,23 @@ static void ili9341_fillrect(struct fb_info *info, const struct fb_fillrect *rec
 {
 	//printk(KERN_INFO "fb%d: ili9341_fillrect\n", info->node);
     //ili9341_update_display_color_area(rect);
+    printk("fillrect");
+
     ili9341_update_display(info);
 }
 
 static void ili9341_copyarea(struct fb_info *info, const struct fb_copyarea *area)
 {
+    printk("copy");
+
 	//printk(KERN_INFO "fb%d: ili9341_copyarea\n", info->node);
     ili9341_update_display(info);
 }
 
 static void ili9341_imageblit(struct fb_info *info, const struct fb_image *image)
 {
+   printk("iblit");
+
    //printk(KERN_INFO "fb%d: ili9341_imageblit\n", info->node);
    //ili9341_update_display_area(image);
    ili9341_update_display(info);
@@ -357,7 +363,8 @@ static ssize_t ili9341_write(struct fb_info *info, const char __user *buf, size_
 	void *dst;
 	int err = 0;
 	unsigned long total_size;
-
+	
+	printk("writing");
 	if (info->state != FBINFO_STATE_RUNNING)
 		return -EPERM;
 
@@ -535,24 +542,27 @@ static int ili9341_probe(struct platform_device *pdev)
     if (0 < fps) {
         info->fbdefio->delay = HZ/fps;
     }
+    printk("1");
 
     fb_deferred_io_init(info);
-
+    printk("2");
     retval = register_framebuffer(info);
     if (retval < 0) {
         framebuffer_release(info);
         vfree(vmem);
         return retval;
     }
-
+    printk("3");
     platform_set_drvdata(pdev, info);
-
+    printk("4");
     gpio = ioremap(GPIO_BASE, BLOCKSIZE);
-
+    printk("5");
     tft_init_board(info);
+    printk("6");
     tft_hard_reset();
+    printk("7");
     tft_init(info);
-
+    printk("8");
     printk(KERN_INFO "fb%d: ili9341 LCD framebuffer device\n", info->node);
     return 0;
 }
