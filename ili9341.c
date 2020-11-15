@@ -41,15 +41,15 @@
 
 #define DC 4
 #define CS 27
-#define RD 14
-#define RW 15
+#define RD 1
+#define RW 12
 #define IM0 10
 #define RESET 17
 
 #define ORIENTATION 0 //0=LANDSCAPE 1=PORTRAIT  
 
-#define DISPLAY_WIDTH   320
-#define DISPLAY_HEIGHT  240
+#define DISPLAY_WIDTH   480
+#define DISPLAY_HEIGHT  320
 
 #define DISPLAY_BPP     16
 
@@ -149,75 +149,158 @@ static void tft_data_write(char data)
     gpio_setstate(RW,1);
 }
 
+
+
+#define TFTLCD_DELAY 0xFFFF
+#define TFTLCD_DELAY8 0x7F
+void init_table(const void *table, int16_t size)
+{
+    int i;
+    uint8_t *p = (uint8_t *) table;
+    while (size > 0) {
+        uint8_t cmd = *p++;
+        uint8_t len = *p++;
+        if (cmd == TFTLCD_DELAY8) {
+            mdelay(len);
+            len = 0;
+        } else {
+            tft_command_write( cmd );
+            for (i = 0; i < len; i++) {
+              uint8_t data = *p++;
+              tft_data_write( data );
+            }
+        }
+        size -= len + 2;
+    }
+}
+
+
 // initialization of ili9341
 static void tft_init(struct fb_info *info)
 {
-	
 	tft_hard_reset();
+    
+    static const uint8_t reset_off[] = {
+    0x01, 0,            //Soft Reset
+    TFTLCD_DELAY8, 150,
+    0x28, 0,            //Display Off
+    0x3A, 1, 0x55,      //Pixel read=565, write=565.
+  };
+
+  static const uint8_t wake_on[] = {
+    0x11, 0,            //Sleep Out
+    TFTLCD_DELAY8, 150,
+    0x29, 0,            //Display On
+  };
+ 
+  static const uint8_t regValues[] = {
+      0xB0, 1, 0x00,              // unlocks E0, F0
+      0xB3, 4, 0x02, 0x00, 0x00, 0x00, //Frame Memory, interface [02 00 00 00]
+      0xB4, 1, 0x00,              // Frame mode [00]
+      0xD0, 3, 0x07, 0x42, 0x18,
+      0xD1, 3, 0x00, 0x07, 0x18,
+      0xD2, 2, 0x01, 0x02,
+      0xD3, 2, 0x01, 0x02,        // Set Power for Partial Mode [01 22]
+      0xD4, 2, 0x01, 0x02,        // Set Power for Idle Mode [01 22]
+      0xC0, 5, 0x10, 0x3B, 0x00, 0x02, 0x11,
+      0xC1, 3, 0x10, 0x10, 0x88,  // Display Timing Normal [10 10 88]
+      0xC5, 1, 0x03,      //Frame Rate [03]
+      0xC6, 1, 0x02,      //Interface Control [02]
+      0xC8, 12, 0x00, 0x32, 0x36, 0x45, 0x06, 0x16, 0x37, 0x75, 0x77, 0x54, 0x0C, 0x00,
+      0xCC, 1, 0x00,      //Panel Control [00]
+      0x36, 1, 0x08,
+      0x3A, 1, 0x55
+    };
+    
+     static const uint8_t ILI9486_regValues[]= {
+/*
+            0xF2, 9, 0x1C, 0xA3, 0x32, 0x02, 0xB2, 0x12, 0xFF, 0x12, 0x00,        //f.k
+            0xF1, 2, 0x36, 0xA4,        //
+            0xF8, 2, 0x21, 0x04,        //
+            0xF9, 2, 0x00, 0x08,        //
+*/
+            0x36, 1, 0x08,
+            0xC0, 2, 0x0d, 0x0d,        //Power Control 1 [0E 0E]
+            0xC1, 2, 0x43, 0x00,        //Power Control 2 [43 00]
+            0xC2, 1, 0x00,      //Power Control 3 [33]
+            0xC5, 4, 0x00, 0x48, 0x00, 0x48,    //VCOM  Control 1 [00 40 00 40]
+            0xB4, 1, 0x00,      //Inversion Control [00]
+            0xB6, 3, 0x02, 0x02, 0x3B,  // Display Function Control [02 02 3B]
+            // 2.2 HSD 3.5 Inch Initial Code not bad
+			0xE0, 15, 0x0F, 0x1F, 0x1C, 0x0C, 0x0F, 0x08, 0x48, 0x98, 0x37, 0x0A, 0x13, 0x04, 0x11, 0x0D, 0x00, 
+			0xE1, 15, 0x0F, 0x32, 0x2E, 0x0B, 0x0D, 0x05, 0x47, 0x75, 0x37, 0x06, 0x10, 0x03, 0x24, 0x20, 0x00, 
+
+        };
+    
+    
+    
+    init_table(reset_off, sizeof(reset_off));
+    init_table(ILI9486_regValues, sizeof(regValues));
+    init_table(wake_on, sizeof(wake_on));
 	
-	tft_command_write(0x28); //display OFF
-	tft_command_write(0x11); //exit SLEEP mode
-	tft_data_write(0x00);
-	tft_command_write(0xCB); //Power Control A
-	tft_data_write(0x39); //always 0x39
-	tft_data_write(0x2C); //always 0x2C
-	tft_data_write(0x00); //always 0x
-	tft_data_write(0x34); //Vcore = 1.6V
-	tft_data_write(0x02); //DDVDH = 5.6V
-	tft_command_write(0xCF); //Power Control B
-	tft_data_write(0x00); //always 0x
-	tft_data_write(0x81); //PCEQ off
-	tft_data_write(0x30); //ESD protection
-	tft_command_write(0xE8); //Driver timing control A
-	tft_data_write(0x85); //non‐overlap
-	tft_data_write(0x01); //EQ timing
-	tft_data_write(0x79); //Pre‐charge timing
-	tft_command_write(0xEA); //Driver timing control B
-	tft_data_write(0x00); //Gate driver timing
-	tft_data_write(0x00); //always 0x
-	tft_command_write(0xED); //Power‐On sequence control
-	tft_data_write(0x64); //soft start
-	tft_data_write(0x03); //power on sequence
-	tft_data_write(0x12); //power on sequence
-	tft_data_write(0x81); //DDVDH enhance on
-	tft_command_write(0xF7); //Pump ratio control
-	tft_data_write(0x20); //DDVDH=2xVCI
-	tft_command_write(0xC0); //power control 1
-	tft_data_write(0x26);
-	tft_data_write(0x04); //second parameter for ILI9340 (ignored by ILI9341)
-	tft_command_write(0xC1); //power control 2
-	tft_data_write(0x11);
-	tft_command_write(0xC5); //VCOM control 1
-	tft_data_write(0x35);
-	tft_data_write(0x3E);
-	tft_command_write(0xC7); //VCOM control 2
-	tft_data_write(0xBE);
-	tft_command_write(0x36); //memory access control = BGR
-	tft_data_write(0x88);
-	tft_command_write(0xB1); //frame rate control
-	tft_data_write(0x00);
-	tft_data_write(0x10);
-	tft_command_write(0xB6); //display function control
-	tft_data_write(0x0A);
-	tft_data_write(0xA2);
-	tft_command_write(0x3A); //pixel format = 16 bit per pixel
-	tft_data_write(0x55);
-	tft_command_write(0xF2); //3G Gamma control
-	tft_data_write(0x02); //off
-	tft_command_write(0x26); //Gamma curve 3
-	tft_data_write(0x01);
-	tft_command_write(0x2A); //column address set
-	tft_data_write(0x00);
-	tft_data_write(0x00); //start 0x00
-	tft_data_write(0x00);
-	tft_data_write(0xEF); //end 0xEF
-	tft_command_write(0x2B); //page address set
-	tft_data_write(0x00);
-	tft_data_write(0x00); //start 0x00
-	tft_data_write(0x01);
-	tft_data_write(0x3F); //end 0x013F
-	
-	tft_command_write(0x29); //display ON
+// 	tft_command_write(0x28); //display OFF
+// 	tft_command_write(0x11); //exit SLEEP mode
+// 	tft_data_write(0x00);
+// 	tft_command_write(0xCB); //Power Control A
+// 	tft_data_write(0x39); //always 0x39
+// 	tft_data_write(0x2C); //always 0x2C
+// 	tft_data_write(0x00); //always 0x
+// 	tft_data_write(0x34); //Vcore = 1.6V
+// 	tft_data_write(0x02); //DDVDH = 5.6V
+// 	tft_command_write(0xCF); //Power Control B
+// 	tft_data_write(0x00); //always 0x
+// 	tft_data_write(0x81); //PCEQ off
+// 	tft_data_write(0x30); //ESD protection
+// 	tft_command_write(0xE8); //Driver timing control A
+// 	tft_data_write(0x85); //non‐overlap
+// 	tft_data_write(0x01); //EQ timing
+// 	tft_data_write(0x79); //Pre‐charge timing
+// 	tft_command_write(0xEA); //Driver timing control B
+// 	tft_data_write(0x00); //Gate driver timing
+// 	tft_data_write(0x00); //always 0x
+// 	tft_command_write(0xED); //Power‐On sequence control
+// 	tft_data_write(0x64); //soft start
+// 	tft_data_write(0x03); //power on sequence
+// 	tft_data_write(0x12); //power on sequence
+// 	tft_data_write(0x81); //DDVDH enhance on
+// 	tft_command_write(0xF7); //Pump ratio control
+// 	tft_data_write(0x20); //DDVDH=2xVCI
+// 	tft_command_write(0xC0); //power control 1
+// 	tft_data_write(0x26);
+// 	tft_data_write(0x04); //second parameter for ILI9340 (ignored by ILI9341)
+// 	tft_command_write(0xC1); //power control 2
+// 	tft_data_write(0x11);
+// 	tft_command_write(0xC5); //VCOM control 1
+// 	tft_data_write(0x35);
+// 	tft_data_write(0x3E);
+// 	tft_command_write(0xC7); //VCOM control 2
+// 	tft_data_write(0xBE);
+// 	tft_command_write(0x36); //memory access control = BGR
+// 	tft_data_write(0x88);
+// 	tft_command_write(0xB1); //frame rate control
+// 	tft_data_write(0x00);
+// 	tft_data_write(0x10);
+// 	tft_command_write(0xB6); //display function control
+// 	tft_data_write(0x0A);
+// 	tft_data_write(0xA2);
+// 	tft_command_write(0x3A); //pixel format = 16 bit per pixel
+// 	tft_data_write(0x55);
+// 	tft_command_write(0xF2); //3G Gamma control
+// 	tft_data_write(0x02); //off
+// 	tft_command_write(0x26); //Gamma curve 3
+// 	tft_data_write(0x01);
+// 	tft_command_write(0x2A); //column address set
+// 	tft_data_write(0x00);
+// 	tft_data_write(0x00); //start 0x00
+// 	tft_data_write(0x00);
+// 	tft_data_write(0xEF); //end 0xEF
+// 	tft_command_write(0x2B); //page address set
+// 	tft_data_write(0x00);
+// 	tft_data_write(0x00); //start 0x00
+// 	tft_data_write(0x01);
+// 	tft_data_write(0x3F); //end 0x013F
+// 	
+// 	tft_command_write(0x29); //display ON
 
 }
 
@@ -225,7 +308,7 @@ static void tft_init(struct fb_info *info)
 static void ili9341_update_display_area(const struct fb_image *image)
 {
 	int x,y;
-	printk("update display");
+	//printk("update display");
 	// set column
 	(ORIENTATION) ? tft_command_write(0x2B) : tft_command_write(0x2A);
 	
@@ -310,11 +393,13 @@ static void ili9341_update_display_color_area(const struct fb_fillrect *rect)
 static void ili9341_update_display(const struct fb_info *info)
 {
 	int x,y;
+	static int iter = 0;
 	
 	tft_command_write(0x2C); //Memory Write
-	
+	//printk("updating display - expect troubles %d\n", iter);
 	if(ORIENTATION == 0){
-		for(y=0;y < DISPLAY_WIDTH ;y++){
+		for(y=0;y < DISPLAY_WIDTH - 1;y++){
+			//printk("y=%d\n", y);
 			for(x=0;x < DISPLAY_HEIGHT ;x++){
 				tft_data_write(info->screen_base[(x * (2 * DISPLAY_WIDTH)) + (y * 2) + 1]);
 				tft_data_write(info->screen_base[(x * (2 * DISPLAY_WIDTH)) + (y * 2) + 2]);
@@ -329,6 +414,7 @@ static void ili9341_update_display(const struct fb_info *info)
 		}
 	}
 	tft_command_write(0x29); //display ON
+	//printk("end of troubles\n");
 }
 
 static void ili9341_fillrect(struct fb_info *info, const struct fb_fillrect *rect)
@@ -456,7 +542,7 @@ static void ili9341_deferred_io(struct fb_info *info, struct list_head *pagelist
 
 
 static struct fb_fix_screeninfo ili9341_fix = {
-    .id             = "ili9341",
+    .id             = "ili9481",
     .type           = FB_TYPE_PACKED_PIXELS,
     .visual         = FB_VISUAL_TRUECOLOR,
     .accel          = FB_ACCEL_NONE,
@@ -593,7 +679,7 @@ static struct platform_driver ili9341_driver = {
     .probe  = ili9341_probe,
     .remove = ili9341_remove,
     .driver = {
-        .name   = "ili9341",
+        .name   = "ili9481",
     },
 };
 
@@ -603,7 +689,7 @@ static int __init ili9341_init(void)
 {
     int ret = platform_driver_register(&ili9341_driver);
     if (0 == ret) {
-        ili9341_device = platform_device_alloc("ili9341", 0);
+        ili9341_device = platform_device_alloc("ili9481", 0);
         if (ili9341_device) {
             ret = platform_device_add(ili9341_device);
         } else {
