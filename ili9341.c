@@ -398,7 +398,7 @@ static void ili9341_update_display(const struct fb_info *info)
 	tft_command_write(0x2C); //Memory Write
 	//printk("updating display - expect troubles %d\n", iter);
 	if(ORIENTATION == 0){
-		for(y=0;y < DISPLAY_WIDTH - 1;y++){
+		for(y=0;y < DISPLAY_WIDTH;y++){
 			//printk("y=%d\n", y);
 			for(x=0;x < DISPLAY_HEIGHT ;x++){
 				tft_data_write(info->screen_base[(x * (2 * DISPLAY_WIDTH)) + (y * 2) + 1]);
@@ -542,7 +542,7 @@ static void ili9341_deferred_io(struct fb_info *info, struct list_head *pagelist
 
 
 static struct fb_fix_screeninfo ili9341_fix = {
-    .id             = "ili9481",
+    .id             = "ili9486",
     .type           = FB_TYPE_PACKED_PIXELS,
     .visual         = FB_VISUAL_TRUECOLOR,
     .accel          = FB_ACCEL_NONE,
@@ -601,7 +601,7 @@ static int ili9341_probe(struct platform_device *pdev)
     unsigned char *vmem;
 
 
-    vmem_size = ili9341_var.width * ili9341_var.height * ili9341_var.bits_per_pixel/8;
+    vmem_size = ili9341_var.width * ili9341_var.height * ili9341_var.bits_per_pixel/8 + 1;
     vmem = vzalloc(vmem_size);
     if (!vmem) {
         return -ENOMEM;
@@ -649,7 +649,7 @@ static int ili9341_probe(struct platform_device *pdev)
     printk("7");
     tft_init(info);
     printk("8");
-    printk(KERN_INFO "fb%d: ili9341 LCD framebuffer device\n", info->node);
+    printk(KERN_INFO "fb%d: ili9486 LCD framebuffer device\n", info->node);
     return 0;
 }
 
@@ -679,7 +679,7 @@ static struct platform_driver ili9341_driver = {
     .probe  = ili9341_probe,
     .remove = ili9341_remove,
     .driver = {
-        .name   = "ili9481",
+        .name   = "ili9486",
     },
 };
 
@@ -689,7 +689,7 @@ static int __init ili9341_init(void)
 {
     int ret = platform_driver_register(&ili9341_driver);
     if (0 == ret) {
-        ili9341_device = platform_device_alloc("ili9481", 0);
+        ili9341_device = platform_device_alloc("ili9486", 0);
         if (ili9341_device) {
             ret = platform_device_add(ili9341_device);
         } else {
