@@ -5,7 +5,7 @@ ili9486
 Installing:
    download the source
    run make
-   sudo insmod ili9341.ko (i am too lazy to rename it too ili9486.ko)
+   sudo insmod ili9341.ko (i am too lazy to rename it to ili9486.ko)
 this will create /dev/fb1.
 Use the new framebuffer (https://github.com/notro/fbtft/wiki/Framebuffer-use)
 
